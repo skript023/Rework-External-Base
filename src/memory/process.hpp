@@ -16,8 +16,7 @@ namespace ellohim
 		uintptr_t m_base_address;
 		size_t m_size;
 
-		process(uint32_t pid) :
-			m_pid(pid)
+		process(uint32_t pid) : m_pid(pid)
 		{
 			m_handle = ::OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
 			if (!m_handle)
@@ -117,6 +116,36 @@ namespace ellohim
 		inline uint64_t allocate(size_t size)
 		{
 			return (uint64_t)::VirtualAllocEx(m_handle, nullptr, size, MEM_COMMIT, PAGE_READWRITE);
+		}
+
+		inline uint32_t get_pid() const
+		{
+			return m_pid;
+		}
+
+		inline HANDLE get_handle() const
+		{
+			return m_handle;
+		}
+
+		static unsigned long find_process_id(const char* process_name)
+		{
+			PROCESSENTRY32 entry;
+			entry.dwSize = sizeof(PROCESSENTRY32);
+			HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+			if (Process32First(snapshot, &entry) == TRUE)
+			{
+				while (Process32Next(snapshot, &entry) == TRUE)
+				{
+					if (strcmp(entry.szExeFile, process_name) == 0)
+					{
+						CloseHandle(snapshot);
+						return entry.th32ProcessID;
+					}
+				}
+			}
+			CloseHandle(snapshot);
+			return 0;
 		}
 	};
 }

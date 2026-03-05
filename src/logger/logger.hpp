@@ -47,7 +47,8 @@ namespace ellohim
 		std::ofstream m_file_out;
 
 		file m_file;
-
+		static inline Color m_light{ 140, 150, 235 };
+		static inline Color m_dark{ 75, 80, 180 };
 	public:
 		logger() = default;
 		virtual ~logger() = default;
@@ -79,6 +80,9 @@ namespace ellohim
 		void format_console(const LogMessagePtr msg);
 		void format_console_simple(const LogMessagePtr msg);
 		void format_file(const LogMessagePtr msg);
+
+		std::string gradient_text(std::string_view text, const Color& from, const Color& to);
+		std::string colorize(char c, const Color& col);
 
 	};
 }

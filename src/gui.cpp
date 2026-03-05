@@ -2,6 +2,7 @@
 #include "imgui.h"
 #include "ui/canvas.hpp"
 #include "menu/view.hpp"
+#include "services/notification/notification_service.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -33,11 +34,18 @@ namespace ellohim
 
 		// should remain in a league of its own
 		NOTIFICATIONS = 0x4000,
+		INPUT_HANDLE = 0x4001,
 	};
 
 	void gui::init()
 	{
 		this->add_dx_callback([this] { this->dx_on_opened(); }, eRenderPriority::MENU);
+		this->add_dx_callback(view::notifications, eRenderPriority::NOTIFICATIONS);
+		this->add_dx_callback([] {
+			ImGui::Begin("Onboarding", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
+
+			ImGui::End();
+			}, eRenderPriority::ONBOARDING);
 
 		this->add_wndproc_callback([this](HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) { wndproc(hwnd, msg, wparam, lparam); });
 
@@ -134,7 +142,7 @@ namespace ellohim
 	{
 		if (!m_dx_callbacks.insert({ priority, callback }).second)
 		{
-			//LOG(WARNING) << "Duplicate priority given on DX Callback!";
+			LOG(WARNING) << "Duplicate priority given on DX Callback!";
 
 			return false;
 		}
@@ -158,29 +166,25 @@ namespace ellohim
 
 	void gui::script_init()
 	{
-		//notification::success("Welcome", std::format("{} Trainer Successfully Injected. Press insert to open", GAME_NAME));
+		notification::success("Welcome", std::format("{} Trainer Successfully Injected. Press insert to open", "CS2"));
 	}
 
 	void gui::wndproc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 	{
 		if (msg == WM_KEYDOWN && wparam == VK_ESCAPE)
 		{
-			//if (g_input_service.is_open()) g_input_service.hide();
+
 		}
-		canvas::check_for_input();
-		canvas::handle_input();
 	}
 
 	bool gui::load_from_file(const char* filename, ID3D11Device* d3dDevice, ID3D11ShaderResourceView** out_srv, int* out_width, int* out_height)
 	{
-		//LOG(INFO) << "Loading texture from " << filename;
-
 		int image_width = 0;
 		int image_height = 0;
 		unsigned char* image_data = stbi_load(filename, &image_width, &image_height, NULL, 4);
 		if (image_data == NULL)
 		{
-			//LOG(WARNING) << "Failed to load image: " << stbi_failure_reason();
+			LOG(WARNING) << "Failed to load image: " << stbi_failure_reason();
 
 			return false;
 		}
@@ -207,7 +211,7 @@ namespace ellohim
 		HRESULT hr = d3dDevice->CreateTexture2D(&desc, &subResource, &pTexture);
 		if (FAILED(hr))
 		{
-			//LOG(WARNING) << "Failed to create texture. HRESULT: " << hr;
+			LOG(WARNING) << "Failed to create texture. HRESULT: " << hr;
 			stbi_image_free(image_data);
 
 			return false;
@@ -223,7 +227,7 @@ namespace ellohim
 		hr = d3dDevice->CreateShaderResourceView(pTexture, &srvDesc, out_srv);
 		if (FAILED(hr))
 		{
-			//LOG(WARNING) << "Failed to create shader resource view. HRESULT: " << hr;
+			LOG(WARNING) << "Failed to create shader resource view. HRESULT: " << hr;
 			pTexture->Release();
 			stbi_image_free(image_data);
 
@@ -235,8 +239,6 @@ namespace ellohim
 		*out_height = image_height;
 		stbi_image_free(image_data);
 
-		//LOG(INFO) << "Loaded texture " << filename << " with dimensions: " << image_width << "x" << image_height;
-
 		return true;
 	}
 
@@ -247,7 +249,7 @@ namespace ellohim
 		unsigned char* image_data = stbi_load_from_memory(buffer, buffer_size, &image_width, &image_height, NULL, 4);
 		if (image_data == NULL)
 		{
-			//LOG(WARNING) << "Failed to load image: " << stbi_failure_reason();
+			LOG(WARNING) << "Failed to load image: " << stbi_failure_reason();
 
 			return false;
 		}
@@ -273,7 +275,7 @@ namespace ellohim
 		HRESULT hr = d3dDevice->CreateTexture2D(&desc, &subResource, &pTexture);
 		if (FAILED(hr))
 		{
-			//LOG(WARNING) << "Failed to create texture. HRESULT: " << hr;
+			LOG(WARNING) << "Failed to create texture. HRESULT: " << hr;
 			stbi_image_free(image_data);
 
 			return false;
@@ -289,7 +291,7 @@ namespace ellohim
 		hr = d3dDevice->CreateShaderResourceView(pTexture, &srvDesc, out_srv);
 		if (FAILED(hr))
 		{
-			//LOG(WARNING) << "Failed to create shader resource view. HRESULT: " << hr;
+			LOG(WARNING) << "Failed to create shader resource view. HRESULT: " << hr;
 			pTexture->Release();
 			stbi_image_free(image_data);
 

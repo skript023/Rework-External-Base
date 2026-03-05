@@ -16,11 +16,6 @@ namespace ellohim
 	{
 		m_console_title = console_title;
 		m_file = file;
-		/*if (is_proton())
-		{
-			LOG(VERBOSE) << "Using simple logger.";
-			m_console_logger = &logger::format_console_simple;
-		}*/
 
 		create_backup();
 		m_file_out.open(m_file.get_path(), std::ios_base::out | std::ios_base::trunc);
@@ -28,10 +23,10 @@ namespace ellohim
 		Logger::Init();
 		Logger::AddSink([this](LogMessagePtr msg) {
 			(this->*m_console_logger)(std::move(msg));
-			});
+		});
 		Logger::AddSink([this](LogMessagePtr msg) {
 			format_file(std::move(msg));
-			});
+		});
 
 		toggle_external_console(attach_console);
 	}
@@ -63,6 +58,8 @@ namespace ellohim
 			if (m_did_console_exist = ::AttachConsole(GetCurrentProcessId()); !m_did_console_exist)
 				AllocConsole();
 
+			HWND hwnd = GetConsoleWindow();
+
 			if (m_console_handle = GetStdHandle(STD_OUTPUT_HANDLE); m_console_handle != nullptr)
 			{
 				SetConsoleTitleA(m_console_title.data());
@@ -76,6 +73,26 @@ namespace ellohim
 				console_mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN;
 
 				SetConsoleMode(m_console_handle, console_mode);
+
+				CONSOLE_SCREEN_BUFFER_INFOEX csbi{ .cbSize = sizeof(CONSOLE_SCREEN_BUFFER_INFOEX) };
+				if (::GetConsoleScreenBufferInfoEx(m_console_handle, &csbi))
+				{
+					csbi.ColorTable[0] = RGB(15, 16, 22);
+					csbi.ColorTable[7] = RGB(185, 190, 210);
+					++csbi.srWindow.Bottom;
+					++csbi.srWindow.Right;
+					::SetConsoleScreenBufferInfoEx(m_console_handle, &csbi);
+				}
+
+				if (hwnd)
+				{
+					auto style = ::GetWindowLongW(hwnd, GWL_STYLE);
+					style &= ~(WS_MAXIMIZEBOX | WS_SIZEBOX);
+					::SetWindowLongW(hwnd, GWL_STYLE, style);
+
+					::SetWindowLongW(hwnd, GWL_EXSTYLE, ::GetWindowLongW(hwnd, GWL_EXSTYLE) | WS_EX_LAYERED);
+					::SetLayeredWindowAttributes(hwnd, 0, 230, LWA_ALPHA);
+				}
 			}
 
 			m_console_out.open("CONOUT$", std::ios_base::out | std::ios_base::app);
@@ -137,7 +154,7 @@ namespace ellohim
 		const auto file = std::filesystem::path(location.file_name()).filename().string();
 
 		if (stream)
-			m_console_out << ADD_COLOR_TO_STREAM(color) << "[" << timestamp << "][" << stream->get()->Name() << "]" << "[" << get_level_string(level) << "][" << file << ":"
+			m_console_out << gradient_text("Quantum", m_light, m_dark) << ADD_COLOR_TO_STREAM(color) << "[" << timestamp << "][" << stream->get()->Name() << "]" << "[" << get_level_string(level) << "][" << file << ":"
 				<< location.line() << "] " << msg->Message() << RESET_STREAM_COLOR << std::flush;
 		else
 			m_console_out << ADD_COLOR_TO_STREAM(color) << "[" << timestamp << "]" << "[" << get_level_string(level) << "][" << file << ":"
@@ -190,5 +207,25 @@ namespace ellohim
 		else
 			m_file_out << "[" << timestamp << "]"
 			"[" << get_level_string(level) << "/" << file << ":" << location.line() << "] " << msg->Message() << std::flush;
+	}
+
+	std::string logger::gradient_text(std::string_view text, const Color& from, const Color& to)
+	{
+		std::string result;
+		result.reserve(text.size() * 20);
+
+		const auto len = text.size();
+		for (std::size_t i = 0; i < len; ++i)
+		{
+			const auto t = len > 1 ? static_cast<float>(i) / static_cast<float>(len - 1) : 0.0f;
+			result += colorize(text[i], Color::lerp(from, to, t));
+		}
+
+		return result;
+	}
+
+	std::string logger::colorize(char c, const Color& col)
+	{
+		return std::format("\033[38;2;{};{};{}m{}", col.r, col.g, col.b, c);
 	}
 }

@@ -15,6 +15,16 @@ namespace ellohim
         std::uint8_t b;
         std::uint8_t a;
 
+        static Color lerp(const Color& a, const Color& b, float t)
+        {
+            return Color(
+                static_cast<std::uint8_t>(a.r + (b.r - a.r) * t),
+                static_cast<std::uint8_t>(a.g + (b.g - a.g) * t),
+                static_cast<std::uint8_t>(a.b + (b.b - a.b) * t),
+                static_cast<std::uint8_t>(a.a + (b.a - a.a) * t)
+            );
+        }
+
         NLOHMANN_DEFINE_TYPE_INTRUSIVE(Color, r, g, b, a)
     };
     /**
@@ -81,12 +91,9 @@ namespace ellohim
 
     inline bool is_key_pressed(std::uint16_t key)
     {
-        if (GetForegroundWindow() == g_pointers->m_hwnd)
+        if (GetAsyncKeyState(key) & 0x8000)
         {
-            if (GetAsyncKeyState(key) & 0x8000)
-            {
-                return true;
-            }
+            return true;
         }
 
         return false;

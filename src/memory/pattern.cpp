@@ -73,45 +73,80 @@ namespace ellohim
 		}
 	}
 
+	void pattern::resolve_module()
+	{
+		MODULEENTRY32 mod{};
+		mod.dwSize = sizeof(mod);
+
+		HANDLE snapshot = CreateToolhelp32Snapshot(
+			TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32,
+			GetProcessId(g_process->get_handle()));
+
+		if (Module32First(snapshot, &mod))
+		{
+			do
+			{
+				if (!_stricmp(mod.szModule, module_name.c_str()))
+				{
+					module_base = reinterpret_cast<uintptr_t>(mod.modBaseAddr);
+					module_size = mod.modBaseSize;
+					CloseHandle(snapshot);
+					return;
+				}
+			} while (Module32Next(snapshot, &mod));
+		}
+
+		CloseHandle(snapshot);
+		throw std::runtime_error("module not found");
+	}
+
 	pattern& pattern::scan()
 	{
-		size_t i = g_process->m_base_address;
-		std::uint8_t* membuf = new std::uint8_t[CHUNK_SIZE];
+		if (!module_base || !module_size)
+			throw std::runtime_error("module not resolved");
 
 		address = 0;
 
-		while (address == 0) 
+		std::unique_ptr<uint8_t[]> buffer(new uint8_t[CHUNK_SIZE]);
+
+		uintptr_t end = module_base + module_size;
+
+		for (uintptr_t current = module_base; current < end; current += CHUNK_SIZE)
 		{
-			if (i >= (g_process->m_base_address + g_process->m_size))
-				break;
+			size_t bytes_to_read = std::min<size_t>(CHUNK_SIZE, end - current);
 
-			if (!g_process->read_raw_ex(i, CHUNK_SIZE, membuf))
-				goto next;
+			if (!g_process->read_raw_ex(current, bytes_to_read, buffer.get()))
+				continue;
 
-			for (int j = 0; j < CHUNK_SIZE; j++)
+			for (size_t i = 0; i < bytes_to_read; ++i)
 			{
-				for (int k = 0; k < compiled.size(); k++) 
+				bool found = true;
+
+				for (size_t j = 0; j < compiled.size(); ++j)
 				{
-					if (!compiled[k].has_value()) continue;
-					if (compiled[k].value() != membuf[j + k]) goto incorrect;
+					if (i + j >= bytes_to_read)
+					{
+						found = false;
+						break;
+					}
+
+					if (compiled[j].has_value() &&
+						compiled[j].value() != buffer[i + j])
+					{
+						found = false;
+						break;
+					}
 				}
 
-				address = i + j;
-				break;
-
-			incorrect: continue;
+				if (found)
+				{
+					address = current + i;
+					return *this;
+				}
 			}
-
-		next:
-			i += CHUNK_SIZE;
 		}
 
-		delete[] membuf;
-
-		if (address == NULL)
-			throw std::exception(("cannot find pattern " + name).data());
-
-		return *this;
+		throw std::runtime_error("cannot find pattern " + name);
 	}
 
 	pattern pattern::rip() 

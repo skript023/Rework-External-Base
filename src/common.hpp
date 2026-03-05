@@ -21,10 +21,10 @@
 #include <regex>
 
 #include <xinput.h>
-
 #include <nlohmann/json.hpp>
 
 #include "core.hpp"
+
 #include <logger/logger.hpp>
 #include <menu_settings.hpp>
 

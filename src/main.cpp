@@ -13,24 +13,9 @@
 #include "settings/settings.hpp"
 #include "utility/class_grabber.hpp"
 
-//int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow)
-
-inline uint32_t find_game_id() 
-{
-	auto win = ellohim::functions::GetProcessId("Discord.exe"); //::FindWindowA("grcWindow", nullptr);
-	if (!win) 
-	{
-		LOG(INFO) << "Cannot find game window";
-	}
-	return win;
-}
-
 int main()
 {
 	using namespace ellohim;
-
-	//while (!FindWindow("grcWindow", "Grand Theft Auto V"))
-		//Sleep(0);
 
 	std::filesystem::path base_dir = std::filesystem::current_path();
 	base_dir /= "data";
@@ -39,7 +24,7 @@ int main()
 
 	settings::initialize(file_manager::get_project_file("./settings.json"));
 
-	logger::initialize("Quantum", file_manager::get_project_file("./logs/log.txt"), true);
+	logger::initialize("Quantum", file_manager::get_project_file("./logs/console.log"), true);
 
 	LOG(INFO) << R"kek(
  ______      _                        _   ____                 
@@ -49,8 +34,16 @@ int main()
 | |____ >  <| ||  __/ |  | | | | (_| | | | |_) | (_| \__ \  __/
 |______/_/\_\\__\___|_|  |_| |_|\__,_|_| |____/ \__,_|___/\___|
  )kek";
+	auto pid = process::find_process_id("cs2.exe");
 
-	auto process_instance = std::make_unique<process>(find_game_id());
+	while (!pid)
+	{
+		LOG(INFO) << "Waiting for game process...";
+		std::this_thread::sleep_for(1s);
+		pid = process::find_process_id("cs2.exe");
+	}
+
+	auto process_instance = std::make_unique<process>(pid);
 	LOG(INFO) << "Process initalized.";
 
 	auto pointers_instance = std::make_unique<pointers>();
@@ -74,12 +67,28 @@ int main()
 	LOG(INFO) << "Scripts registered.";
 
 	LOG(INFO) << "Program is running";
+	g_thread_pool->push([] {
+		while (g_running)
+		{
+			if (!g_process->is_running())
+			{
+				LOG(INFO) << "Process has exited.";
+				g_running = false;
+				break;
+			}
+
+			g_script_mgr.tick();
+
+			std::this_thread::sleep_for(100ms);
+		}
+	});
 
 	while (g_running)
 	{
-		g_script_mgr.tick();
+		settings::tick();
+		g_settings.attempt_save();
 
-		Sleep(0);
+		Sleep(1);
 	}
 
 	g_script_mgr.remove_all_scripts();

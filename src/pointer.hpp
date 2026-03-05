@@ -8,7 +8,8 @@ namespace ellohim
 	{
 		std::uint64_t address;
 	public:
-		inline pointer(std::uint64_t address) :
+		pointer() = default;
+		pointer(std::uint64_t address) :
 			address(address)
 		{
 		}

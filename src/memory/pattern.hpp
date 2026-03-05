@@ -10,16 +10,19 @@ namespace ellohim
 		std::vector<std::optional<uint8_t>> compiled;
 		std::string name;
 		uintptr_t   address = 0;
+		std::string module_name;
+
+		uintptr_t   module_base = 0;
+		size_t      module_size = 0;
 
 	public:
-		inline pattern(std::string name, std::string x) :
-			name(name)
+		pattern(std::string module, std::string name, std::string x) : name(name), module_name(module)
 		{
 			try
 			{
+				resolve_module();
 				compile(x);
 				scan();
-				LOG(INFO) << name << " Found";
 			}
 			catch(const std::exception& e)
 			{
@@ -27,13 +30,15 @@ namespace ellohim
 			}
 		}
 
-		inline pattern(std::string name_, uintptr_t addr)
+		pattern(std::string name_, uintptr_t addr)
 		{
 			name = name_;
 			address = addr;
 		}
 
 		void compile(const std::string& pat);
+
+		void resolve_module();
 
 		pattern& scan();
 
@@ -48,6 +53,11 @@ namespace ellohim
 		}
 
 		pattern rip();
+
+		uint64_t get() const
+		{
+			return address;
+		}
 
 		inline operator std::uint64_t() const
 		{

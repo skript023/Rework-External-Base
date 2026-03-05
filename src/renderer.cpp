@@ -30,6 +30,19 @@ namespace ellohim
 		clear_all();
 	}
 
+    bool renderer::register_window_class()
+    {
+        m_name = "Gottvergessen (DX11)";
+        m_window_class = {
+            sizeof(WNDCLASSEX), CS_HREDRAW | CS_VREDRAW, wndproc, 0L, 0L,
+            GetModuleHandle(NULL), NULL, NULL, NULL, NULL, m_name, NULL
+        };
+
+        m_atom = RegisterClassEx(&m_window_class);
+
+		return m_atom != 0;
+    }
+
 	void renderer::on_present()
 	{
 		while (m_message.message != WM_QUIT)
@@ -48,31 +61,8 @@ namespace ellohim
             ImGui_ImplWin32_NewFrame();
             ImGui::NewFrame();
 
-            ImVec2 screen_res{ 0, 0 };
-            ImVec2 window_pos{ 0, 0 };
-            ImVec2 window_size{ 1920, 1080 };
-            if (m_init_pos == false)
-            {
-                RECT screen_rect;
-                GetWindowRect(GetDesktopWindow(), &screen_rect);
-                screen_res = ImVec2(float(screen_rect.right), float(screen_rect.bottom));
-                window_pos.x = (screen_res.x - window_size.x) * 0.5f;
-                window_pos.y = (screen_res.y - window_size.y) * 0.5f;
-                m_init_pos = true;
-            }
-
-            {
-                ImGui::SetNextWindowPos(ImVec2(g_settings.window.m_pos.x, g_settings.window.m_pos.y + 25.f), ImGuiCond_Always);
-                ImGui::SetNextWindowSize(ImVec2(g_settings.window.m_width, 300.f), ImGuiCond_Always);
-
-                ImGui::Begin("Main Window", nullptr, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_None | ImGuiWindowFlags_NoBackground);
-
-                for (const auto& cb : g_gui.m_dx_callbacks | std::views::values)
-                    cb();
-
-                ImGui::End();
-
-            }
+            for (const auto& cb : g_gui.m_dx_callbacks | std::views::values)
+                cb();
 
             ImGui::EndFrame();
 
@@ -192,30 +182,30 @@ namespace ellohim
 
     bool renderer::init_imgui()
     {
-        m_name = "Gottvergessen (DX11)";
-        m_window_class =
+		if (!register_window_class())
         {
-            sizeof(WNDCLASSEX), CS_HREDRAW | CS_VREDRAW, wndproc, 0L, 0L,
-            GetModuleHandle(NULL), NULL, NULL, NULL, NULL, m_name, NULL
-        };
+            clear_all();
+            return false;
+        }
 
-        RegisterClassEx(&m_window_class);
-        m_hwnd = CreateWindowEx(WS_EX_TOPMOST | WS_EX_TRANSPARENT | WS_EX_LAYERED, m_window_class.lpszClassName, m_name, WS_POPUP,
-            0, 0, 1920, 1080, NULL, NULL, m_window_class.hInstance, NULL);
+		m_screen_res = ScreenResolution(::GetSystemMetrics(SM_CXSCREEN), ::GetSystemMetrics(SM_CYSCREEN));
 
-        SetWindowLong(m_hwnd, GWL_EXSTYLE, GetWindowLong(m_hwnd, GWL_EXSTYLE)
+        g_pointers->m_hwnd = CreateWindowEx(WS_EX_TOPMOST | WS_EX_TRANSPARENT | WS_EX_LAYERED | WS_EX_NOACTIVATE, m_window_class.lpszClassName, m_name, WS_POPUP,
+            0, 0, m_screen_res.x, m_screen_res.y, NULL, NULL, m_window_class.hInstance, NULL);
+
+        SetWindowLong(g_pointers->m_hwnd, GWL_EXSTYLE, GetWindowLong(g_pointers->m_hwnd, GWL_EXSTYLE)
             | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOPMOST);
-        SetLayeredWindowAttributes(m_hwnd, RGB(0, 0, 0), BYTE(255), LWA_ALPHA); // alpha 0
+        SetLayeredWindowAttributes(g_pointers->m_hwnd, RGB(0, 0, 0), BYTE(255), LWA_ALPHA); // alpha 0
 
         {
             RECT client_area{};
-            GetClientRect(m_hwnd, &client_area);
+            GetClientRect(g_pointers->m_hwnd, &client_area);
 
             RECT window_area{};
-            GetWindowRect(m_hwnd, &window_area);
+            GetWindowRect(g_pointers->m_hwnd, &window_area);
 
             POINT diff{};
-            ClientToScreen(m_hwnd, &diff);
+            ClientToScreen(g_pointers->m_hwnd, &diff);
 
             const MARGINS margins = {
                 window_area.left + (diff.x - window_area.left),
@@ -224,24 +214,24 @@ namespace ellohim
                 client_area.bottom
             };
 
-            DwmExtendFrameIntoClientArea(m_hwnd, &margins);
+            DwmExtendFrameIntoClientArea(g_pointers->m_hwnd, &margins);
         }
 
-        if (!create_d3d_device(m_hwnd))
+        if (!create_d3d_device(g_pointers->m_hwnd))
         {
             clear_all();
             return false;
         }
 
-        ShowWindow(m_hwnd, SW_SHOWDEFAULT);
-        UpdateWindow(m_hwnd);
+        ShowWindow(g_pointers->m_hwnd, SW_SHOWDEFAULT);
+        UpdateWindow(g_pointers->m_hwnd);
 
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
-        ImGui_ImplWin32_Init(m_hwnd);
-        ImGui_ImplWin32_EnableAlphaCompositing(m_hwnd);
+        ImGui_ImplWin32_Init(g_pointers->m_hwnd);
+        ImGui_ImplWin32_EnableAlphaCompositing(g_pointers->m_hwnd);
         ImGui_ImplDX11_Init(m_device, m_context);
         ZeroMemory(&m_message, sizeof(m_message));
 

@@ -1,15 +1,12 @@
 #include "../view.hpp"
-#include "pointers.hpp"
+#include "renderer.hpp"
 #include "notification/notification_service.hpp"
 
 namespace ellohim
 {
 	float draw_notification(float start_pos, ImDrawList* dl, std::string title, std::string message, ImVec4 color)
 	{
-		ImVec2 screen_res{ 0, 0 };
-		RECT screen_rect;
-		GetWindowRect(GetDesktopWindow(), &screen_rect);
-		screen_res = ImVec2(float(screen_rect.right), float(screen_rect.bottom));
+		auto screen_res = renderer::get_screen_res();;
 
 		int x = screen_res.x;
 		int y = screen_res.y;

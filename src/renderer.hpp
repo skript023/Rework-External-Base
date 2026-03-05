@@ -1,5 +1,5 @@
 #pragma once
-#include "common.hpp"
+#include "classes/vector.hpp"
 
 namespace ellohim
 {
@@ -42,6 +42,7 @@ namespace ellohim
 		static void destroy() { get().destroy_impl(); }
 		static ImFont* get_font() { return get().m_font; }
 		static ImFont* get_monospace_font() { return get().m_monospace_font; }
+		static ScreenResolution get_screen_res() { return get().m_screen_res; }
 	private:
 		void on_present();
 		bool create_d3d_device(HWND hwnd);
@@ -53,18 +54,20 @@ namespace ellohim
 		bool init_imgui();
 		void init_impl();
 		void destroy_impl();
+		bool register_window_class();
 		static LRESULT wndproc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 	private:
 		void merge_icon_with_latest_font(float font_size, bool FontDataOwnedByAtlas);
 		void load_texture(ID3D11Device* device);
 		bool m_init_pos = false;
-	public:
+	private:
+		ScreenResolution m_screen_res{};
 		WNDCLASSEX m_window_class{};
-		HWND m_hwnd{};
 		LPCSTR m_name{};
 		MSG m_message{};
 		ImFont* m_font{};
 		ImFont* m_monospace_font{};
+		ATOM m_atom{};
 	public:
 		IDXGISwapChain* m_swap_chain = nullptr;
 		ID3D11Device* m_device = nullptr;
