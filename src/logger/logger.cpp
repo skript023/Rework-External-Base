@@ -154,7 +154,7 @@ namespace ellohim
 		const auto file = std::filesystem::path(location.file_name()).filename().string();
 
 		if (stream)
-			m_console_out << gradient_text("Quantum", m_light, m_dark) << ADD_COLOR_TO_STREAM(color) << "[" << timestamp << "][" << stream->get()->Name() << "]" << "[" << get_level_string(level) << "][" << file << ":"
+			m_console_out << ADD_COLOR_TO_STREAM(color) << "[" << timestamp << "][" << stream->get()->Name() << "]" << "[" << get_level_string(level) << "][" << file << ":"
 				<< location.line() << "] " << msg->Message() << RESET_STREAM_COLOR << std::flush;
 		else
 			m_console_out << ADD_COLOR_TO_STREAM(color) << "[" << timestamp << "]" << "[" << get_level_string(level) << "][" << file << ":"
