@@ -46,8 +46,8 @@ namespace ellohim
 			}
 		}
 
-		dl->AddRectFilled({ (float)x - 360.f, 10.f + start_pos }, { (float)x - 10.f, start_pos + 45.f + total_size }, g_settings.window.color);
-		dl->AddRectFilledMultiColor({ (float)x - 360.f, 10.f + start_pos }, { (float)x - 255.f, start_pos + 45.f + total_size }, fadeBegin, fadeEnd, fadeEnd, fadeBegin);
+		dl->AddRectFilled({ (float)x - 360.f, 10.f + start_pos }, { (float)x - 10.f, start_pos + 55.f + total_size }, g_settings.window.color);
+		dl->AddRectFilledMultiColor({ (float)x - 360.f, 10.f + start_pos }, { (float)x - 255.f, start_pos + 55.f + total_size }, fadeBegin, fadeEnd, fadeEnd, fadeBegin);
 
 		dl->AddText(g_settings.window.font_sub_title, 22.f, { (float)x - 350.f, 15.f + start_pos }, textCol, title.c_str());
 		int i = 0;
@@ -57,7 +57,7 @@ namespace ellohim
 			i++;
 		}
 
-		return start_pos + 45.f + total_size;
+		return start_pos + 55.f + total_size;
 	}
 
 	void view::notifications()

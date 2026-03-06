@@ -8,8 +8,7 @@ namespace ellohim
 	{
 		while (g_running)
 		{
-			canvas::check_for_input(); 
-			canvas::handle_input();
+			
 
 			script::get_current()->yield();
 		}

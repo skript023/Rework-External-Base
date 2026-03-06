@@ -41,11 +41,6 @@ namespace ellohim
 	{
 		this->add_dx_callback([this] { this->dx_on_opened(); }, eRenderPriority::MENU);
 		this->add_dx_callback(view::notifications, eRenderPriority::NOTIFICATIONS);
-		this->add_dx_callback([] {
-			ImGui::Begin("Onboarding", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
-
-			ImGui::End();
-			}, eRenderPriority::ONBOARDING);
 
 		this->add_wndproc_callback([this](HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) { wndproc(hwnd, msg, wparam, lparam); });
 
@@ -162,11 +157,14 @@ namespace ellohim
 	void gui::dx_on_opened()
 	{
 		canvas::tick();
+
+		canvas::check_for_input();
+		canvas::handle_input();
 	}
 
 	void gui::script_init()
 	{
-		notification::success("Welcome", std::format("{} Trainer Successfully Injected. Press insert to open", "CS2"));
+		notification::success("Welcome", std::format("{} Trainer Successfully Initialized. Press insert to open", "CS2"));
 	}
 
 	void gui::wndproc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)

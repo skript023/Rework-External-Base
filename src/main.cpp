@@ -10,6 +10,7 @@
 #include "menu_settings.hpp"
 
 #include "memory/process.hpp"
+#include "worker/main_worker.hpp"
 #include "settings/settings.hpp"
 #include "utility/class_grabber.hpp"
 
@@ -64,6 +65,7 @@ int main()
 	LOG(INFO) << "Renderer Initialized.";
 
 	g_script_mgr.add_script(std::make_unique<script>(&features::script_func));
+	g_script_mgr.add_script(std::make_unique<script>(&main_worker::run));
 	LOG(INFO) << "Scripts registered.";
 
 	LOG(INFO) << "Program is running";
@@ -79,7 +81,7 @@ int main()
 
 			g_script_mgr.tick();
 
-			std::this_thread::sleep_for(100ms);
+			std::this_thread::sleep_for(10ms);
 		}
 	});
 

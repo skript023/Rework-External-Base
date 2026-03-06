@@ -34,8 +34,10 @@ namespace ellohim
 		instance().push({ NotificationType::INFO, ICON_FA_INFO_CIRCLE " " + title, message, std::chrono::system_clock::now(), 3000.f , 1.f });
 	}
 
-	void notification::success(std::string, std::string)
-	{}
+	void notification::success(std::string title, std::string message)
+	{
+		instance().push({ NotificationType::SUCCESS, ICON_FA_CHECK_CIRCLE " " + title, message, std::chrono::system_clock::now(), 3000.f , 1.f });
+	}
 
 	void notification::warning(std::string title, std::string message)
 	{

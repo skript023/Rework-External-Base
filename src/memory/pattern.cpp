@@ -130,8 +130,7 @@ namespace ellohim
 						break;
 					}
 
-					if (compiled[j].has_value() &&
-						compiled[j].value() != buffer[i + j])
+					if (compiled[j].has_value() && compiled[j].value() != buffer[i + j])
 					{
 						found = false;
 						break;

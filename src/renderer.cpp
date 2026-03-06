@@ -23,6 +23,7 @@ namespace ellohim
                 renderer::on_present();
             }
         }).detach();
+		g_gui.script_init();
 	}
 
 	void renderer::destroy_impl()
