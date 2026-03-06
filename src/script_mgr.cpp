@@ -21,6 +21,25 @@ namespace ellohim
 		std::invoke(std::forward<std::_Mem_fn<void(ellohim::script_mgr::*)()>>(std::mem_fn(&script_mgr::tick_internal)), std::forward<script_mgr*>(this));
 	}
 
+	void script_mgr::run()
+	{
+		std::thread([] {
+			while (g_running)
+			{
+				if (!g_process->is_running())
+				{
+					LOG(INFO) << "Process has exited.";
+					g_running = false;
+					break;
+				}
+
+				g_script_mgr.tick();
+
+				std::this_thread::sleep_for(10ms);
+			}
+		}).detach();
+	}
+
 	void script_mgr::tick_internal()
 	{
 		static bool ensure_main_fiber = (ConvertThreadToFiber(nullptr), true);

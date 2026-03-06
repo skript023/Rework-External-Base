@@ -13,6 +13,7 @@ namespace ellohim
 		void add_script(std::unique_ptr<script> script);
 		void remove_all_scripts();
 		void tick();
+		void run();
 	private:
 		void tick_internal();
 	private:

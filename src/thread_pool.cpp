@@ -1,87 +1,124 @@
-#pragma once
 #include "thread_pool.hpp"
 
 namespace ellohim
 {
-	thread_pool::thread_pool() : m_accept_jobs(true)
+	void thread_pool::init_impl(const std::size_t preallocated_thread_count)
 	{
-		this->m_managing_thread = std::thread(&thread_pool::create, this);
+		m_accept_jobs = true;
+		m_allocated_thread_count = preallocated_thread_count;
+		m_busy_threads = 0;
 
-		g_thread_pool = this;
+		rescale_thread_pool();
 	}
 
-	thread_pool::~thread_pool()
+	void thread_pool::rescale_thread_pool()
 	{
-		g_thread_pool = nullptr;
+		m_thread_pool.reserve(m_allocated_thread_count);
+		m_job_stack.resize(m_allocated_thread_count);
+
+		if (m_thread_pool.size() < m_allocated_thread_count)
+		{
+			for (auto i = m_thread_pool.size(); i < m_allocated_thread_count; i++)
+				m_thread_pool.emplace_back(std::thread(&thread_pool::run, this, i));
+
+			LOG(VERBOSE) << "Resizing thread pool from " << m_thread_pool.size() << " to " << m_allocated_thread_count;
+		}
 	}
 
-	void thread_pool::create()
+	void thread_pool::destroy_impl()
 	{
-		const std::uint32_t thread_count = std::thread::hardware_concurrency();
-
-		LOG(VERBOSE) << "Allocating " << thread_count << " threads in thread pool.";
-		this->m_thread_pool.reserve(thread_count);
-
-		for (std::uint32_t i = 0; i < thread_count; i++)
-			this->m_thread_pool.emplace_back(std::thread(&thread_pool::run, this));
-	}
-
-	void thread_pool::destroy()
-	{
-		this->m_managing_thread.join();
-
 		{
 			std::unique_lock lock(m_lock);
-			this->m_accept_jobs = false;
+			m_accept_jobs = false;
 		}
-		this->m_data_condition.notify_all();
+		m_data_condition.notify_all();
 
 		for (auto& thread : m_thread_pool)
 			thread.join();
 
 		m_thread_pool.clear();
+		m_job_stack.clear();
 	}
 
-	void thread_pool::push(std::function<void()> func)
+	void thread_pool::queue_job_impl(std::function<void()> func, std::source_location location)
 	{
 		if (func)
 		{
+			static std::atomic<size_t> next_queue{ 0 };
+			auto index = next_queue++ % m_job_stack.size();
+
 			{
-				std::unique_lock lock(this->m_lock);
-				this->m_job_stack.push(std::move(func));
+				std::unique_lock lock(m_lock);
+				m_job_stack[index].push_front({ func, location });
+
+				if (m_busy_threads >= m_job_stack.size()) [[unlikely]]
+				{
+					LOG(WARNING) << "Thread pool potentially starved, resizing to accommodate for load.";
+
+					if (m_allocated_thread_count >= MAX_POOL_SIZE)
+					{
+						LOG(FATAL) << "The thread pool limit has been reached, whatever you did this should not occur in production.";
+					}
+					if (m_accept_jobs && m_allocated_thread_count + 1 <= MAX_POOL_SIZE)
+					{
+						++m_allocated_thread_count;
+						rescale_thread_pool();
+					}
+				}
 			}
-			this->m_data_condition.notify_all();
+			m_data_condition.notify_all();
 		}
 	}
 
-	void thread_pool::run()
+	void thread_pool::run(size_t index)
 	{
 		for (;;)
 		{
-			std::unique_lock lock(this->m_lock);
+			thread_pool_job job;
+			std::unique_lock lock(m_lock);
 
-			this->m_data_condition.wait(lock, [this]()
-				{
-					return !this->m_job_stack.empty() || !this->m_accept_jobs;
+			m_data_condition.wait(lock, [this, index]() {
+				return !m_job_stack[index].empty() || !m_accept_jobs;
 				});
 
-			if (!this->m_accept_jobs) break;
-			if (this->m_job_stack.empty()) continue;
+			if (!m_accept_jobs) [[unlikely]]
+				break;
 
-			std::function<void()> job = std::move(this->m_job_stack.top());
-			this->m_job_stack.pop();
+			if (!m_job_stack[index].empty()) [[unlikely]]
+			{
+				job = m_job_stack[index].front();
+				m_job_stack[index].pop_front();
+			}
+			else if (m_allocated_thread_count > 1) [[likely]]
+			{
+				for (size_t i = 0; i < m_job_stack.size(); i++)
+				{
+					size_t victim = (index + i + 1) % m_job_stack.size();
+
+					if ((m_job_stack[victim].size() >= 4) && victim != index) [[unlikely]]
+					{
+						job = m_job_stack[victim].back();
+						m_job_stack[victim].pop_back();
+
+						break;
+					}
+				}
+			}
+
 			lock.unlock();
+
+			++m_busy_threads;
 
 			try
 			{
-				std::invoke(std::move(job));
+				std::invoke(job.m_func);
 			}
 			catch (const std::exception& e)
 			{
-				LOG(WARNING) << "Exception thrown while executing job in thread:" << std::endl << e.what();
+				LOG(WARNING) << "Exception thrown while executing job in thread:" << e.what();
 			}
-		}
 
-		LOG(VERBOSE) << "Thread " << std::this_thread::get_id() << " exiting...";
+			--m_busy_threads;
+		}
 	}
 }

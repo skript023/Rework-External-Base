@@ -1,7 +1,5 @@
 #include "renderer.hpp"
-#include "Functions.h"
 #include "pointers.hpp"
-#include "common.hpp"
 #include "file_manager.hpp"
 #include "thread_pool.hpp"
 #include "fiber_pool.hpp"
@@ -47,15 +45,15 @@ int main()
 	auto process_instance = std::make_unique<process>(pid);
 	LOG(INFO) << "Process initalized.";
 
+	g_settings.load();
+
 	auto pointers_instance = std::make_unique<pointers>();
 	LOG(INFO) << "Pointers initialized.";
-
-	auto setting_instance = std::make_unique<menu_settings>();
 
 	fiber_pool::init(10);
 	LOG(INFO) << "Fiber pool initialized.";
 	
-	auto thread_pool_instance = std::make_unique<thread_pool>();
+	thread_pool::init(std::thread::hardware_concurrency() / 2);
 	LOG(INFO) << "Thread pool initialized.";
 
 	auto class_grabber_instance = std::make_unique<LoadClass>();
@@ -69,21 +67,7 @@ int main()
 	LOG(INFO) << "Scripts registered.";
 
 	LOG(INFO) << "Program is running";
-	g_thread_pool->push([] {
-		while (g_running)
-		{
-			if (!g_process->is_running())
-			{
-				LOG(INFO) << "Process has exited.";
-				g_running = false;
-				break;
-			}
-
-			g_script_mgr.tick();
-
-			std::this_thread::sleep_for(10ms);
-		}
-	});
+	g_script_mgr.run();
 
 	while (g_running)
 	{
@@ -111,13 +95,10 @@ int main()
 	fiber_pool::destroy();
 	LOG(INFO) << "Fiber pool uninitialized.";
 
-	thread_pool_instance->destroy();
+	thread_pool::destroy();
 	LOG(INFO) << "Destroyed thread pool.";
 
-	thread_pool_instance.reset();
-	LOG(INFO) << "Thread pool uninitialized.";
-
-	setting_instance.reset();
+	g_settings.attempt_save();
 
 	logger::destroy();
 
